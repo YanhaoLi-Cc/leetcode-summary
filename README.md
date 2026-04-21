@@ -21,7 +21,7 @@
 | 139 | [单词拆分](#139-单词拆分) | 中等 | ✅ |
 | 300 | [最长递增子序列](#300-最长递增子序列) | 中等 | ✅ |
 | 152 | [乘积最大子数组](#152-乘积最大子数组) | 中等 | ✅ |
-| 416 | 分割等和子集 | 中等 | ⬜ |
+| 416 | [分割等和子集](#416-分割等和子集) | 中等 | ✅ |
 | 32 | 最长有效括号 | 困难 | ⬜ |
 
 ---
@@ -257,3 +257,67 @@ class Solution:
 - 与 300 LIS 的区别：**连续子数组** ⇒ 只依赖 `dp[i-1]`，无需内层循环；**负数** ⇒ 必须同时维护 max 和 min
 - `nums[i]` 作为候选之一，等价于"遇到 0 或不利乘积时从当前位置重新开始"
 - `O(1)` 空间优化：用 `cur_max`、`cur_min` 两个变量替代数组，但更新时要先缓存旧值，防止 `cur_max` 被覆盖后污染 `cur_min` 的计算
+
+---
+
+### 416. 分割等和子集
+
+**题目**：给定只含正整数的非空数组 `nums`，判断能否分成两个元素和相等的子集。
+
+**解法类型**：0/1 背包 · 存在型 DP
+
+**问题转化**：两子集和相等 ⇒ 每个子集和为 `total // 2`。问题等价于"**能否从 `nums` 中选出若干元素，使和恰好等于 `target = total // 2`**"——经典 0/1 背包。
+
+**`dp` 定义**：`dp[i][j]` = 从前 `i+1` 个元素（索引 `0..i`）中，**能否选出一个子集**使其和恰好为 `j`（存在型，不要求包含 `nums[i]`）。
+
+**状态转移方程**（代码形式）：
+
+```python
+# 不选 nums[i]
+dp[i][j] = dp[i-1][j]
+# 选 nums[i]（与"不选"取 or 合并）
+if j == nums[i]:
+    dp[i][j] = True
+elif j > nums[i]:
+    dp[i][j] = dp[i][j] or dp[i-1][j - nums[i]]
+```
+
+**初始化 / 边界**：
+- `total` 为奇数 → 直接返回 `False`
+- `nums[0] > target` → 直接返回 `False`（否则 `dp[0][nums[0]]` 越界）
+- `dp[0][nums[0]] = True`，其余 `False`
+- 答案：`dp[N-1][target]`
+
+**复杂度**：时间 `O(N × target)`，空间 `O(N × target)`（可压一维到 `O(target)`）。
+
+**代码**：
+
+```python
+class Solution:
+    def canPartition(self, nums: List[int]) -> bool:
+        N = len(nums)
+        total = sum(nums)
+        if total % 2 == 1:
+            return False
+        target = total // 2
+        if nums[0] > target:
+            return False
+
+        # dp[i][j]: 前 i+1 个元素能否凑出和 j
+        dp = [[False] * (1 + target) for _ in range(N)]
+        dp[0][nums[0]] = True
+        for i in range(1, N):
+            for j in range(1, target + 1):
+                dp[i][j] = dp[i-1][j]                        # 不选
+                if j == nums[i]:
+                    dp[i][j] = True                          # 选（单独够）
+                elif j > nums[i]:
+                    dp[i][j] = dp[i][j] or dp[i-1][j-nums[i]]  # 选（和之前拼）
+        return dp[N-1][target]
+```
+
+**要点**：
+- **易错点**：情况 2.2 必须用 `or` 和情况 1 合并，写成 `=` 会把"不选"的 True 结果覆盖掉，酿成 `[3,1,4,2,2]` 这类反例错误
+- **"存在型" vs "以 i 结尾"**：本题 `dp[i][j]` 不要求包含 `nums[i]`（子集能凑出即可），所以答案是 `dp[N-1][target]` 这个固定格子；对比 300 LIS/152 乘积最大子数组必须"以 `i` 结尾"，答案要 `max(dp)`
+- **0/1 背包 vs 完全背包**：本题每个元素只能用一次（0/1）；322/518 的硬币可无限次（完全）。一维压缩时，0/1 背包内层**倒序**，完全背包内层**正序**
+- **一维优化**：`dp = [False] * (target + 1); dp[0] = True`，内层 `for j in range(target, num - 1, -1)` 倒序更新
