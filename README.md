@@ -5,6 +5,7 @@
 ## 目录
 
 - [动态规划 (Dynamic Programming)](#动态规划-dynamic-programming)
+- [面试题 (Interview)](#面试题-interview)
 
 ---
 
@@ -369,3 +370,88 @@ class Solution:
 - **易错点 2**：返回 `max(dp)` 而非 `dp[N-1]`——"以 `i` 结尾"型 DP 的通用模式
 - **`dp[-1]` 的巧合**：`dp = [0] * (N+1)` 多开一格保证 `dp[-1] = dp[N] = 0`，让 `dp[i-dp[i-1]-2]` 在下标为 `-1` 时也返回 `0`；改用 `dp = [0] * N` 要显式判断 `match - 1 >= 0`
 - **同类套路**：300 LIS、152 乘积最大子数组，都是"以 `i` 结尾 + `max(dp)` 收尾"
+
+---
+
+## 面试题 (Interview)
+
+| 题目 | 来源 | 类型 | 状态 |
+| --- | --- | --- | --- |
+| [卷子分数](#卷子分数华为机试) | 华为机试 2022-04-20 | 带停止条件的计数 DP | ✅ |
+
+---
+
+### 卷子分数（华为机试）
+
+**题目**：一张试卷共 25 题（10 道单选 2 分、10 道填空 4 分、5 道多选 8 分，按顺序作答）。答题时连续出现 3 道错题就停止考试并记录当前分数。给定分数 `N`，问最多有多少种答题情况。
+
+**来源**：[LeetCode 讨论区 · 4.20 华为机试](https://leetcode.cn/discuss/post/3564551/)
+
+**解法类型**：带停止条件的计数 DP · 三维状态
+
+**`dp` 定义**：`dp[i][j][k]` = 答完前 `i` 题、当前分数为 `j`、末尾连续 `k` 道错题（`k ∈ {0, 1, 2}`）、尚未触发 3 连错停止 的方案数。
+
+**为什么要三维**：
+- `i`：题号（决定当前是第几题，影响分值）
+- `j`：分数（题目问的统计维度）
+- `k`：末尾连续错题数（决定下一次答错是否触发停止）
+
+"末尾连续错题数"是**必须入状态**的维度——不记录的话，无从判断下一道错题是否触发停止。
+
+**状态转移方程**（push 风格）：
+
+```python
+# 答对：分数 +p，连续错清零
+dp[i+1][j + p][0] += dp[i][j][k]
+
+# 答错 (k < 2)：分数不变，连续错 +1
+dp[i+1][j][k + 1] += dp[i][j][k]
+
+# 答错 (k == 2)：触发 3 连错，考试停止，分数 j 被记录
+stopped[j] += dp[i][j][k]
+```
+
+**初始化 / 边界**：
+- `dp[0][0][0] = 1`（未答题、0 分、0 连错）
+- `stopped[s]` 记录"任意位置触发停止、最终分数为 s"的方案数
+- **答案**：`ans(N) = Σ_k dp[25][N][k] + stopped[N]`（完成整卷的方案 + 中途停止的方案）
+
+**复杂度**：时间 `O(len × max_score × 3)`，即 `25 × 101 × 3 ≈ 7600`；空间同阶（可滚动压成 `O(max_score × 3)`）。
+
+**代码**：
+
+```python
+class Solution:
+    def countScenarios(self, N: int, points: list) -> int:
+        lens = len(points)
+        max_score = sum(points)
+        # dp[i][j][k]: 答完前 i 题、分数 j、末尾连续 k 错、未停止的方案数
+        dp = [[[0] * 3 for _ in range(max_score + 1)] for _ in range(lens + 1)]
+        dp[0][0][0] = 1
+        stopped = [0] * (max_score + 1)
+
+        for i in range(lens):
+            point = points[i]
+            for j in range(max_score + 1):
+                for k in range(3):
+                    cnt = dp[i][j][k]
+                    if cnt == 0:
+                        continue
+                    # 答对
+                    if j + point <= max_score:
+                        dp[i + 1][j + point][0] += cnt
+                    # 答错
+                    if k < 2:
+                        dp[i + 1][j][k + 1] += cnt
+                    else:
+                        stopped[j] += cnt
+
+        completed = sum(dp[lens][N][k] for k in range(3))
+        return completed + stopped[N]
+```
+
+**要点**：
+- **push vs pull**：代码是 push 风格——"从当前状态把方案数推到未来"；同一目标被多个来源贡献，**必须用 `+=` 累加**，写 `=` 会被后续的 `k` 循环覆盖
+- **三维 vs 滚动压缩**：逻辑上是 `dp[i][j][k]`，代码里 `i` 维度可以用两层数组滚动压掉，空间从 `O(I×S×K)` 降到 `O(S×K)`；初学调试建议保留三维
+- **"停止"不是 dp 的一个格子**：考试停止后就不再有后续状态，单独用 `stopped[j]` 累加
+- **同类套路**：带终止条件的计数问题（如"连续 k 次事件就结束"），通用解法都是"把末尾连续计数 k 放进状态"
