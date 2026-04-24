@@ -380,7 +380,7 @@ class Solution:
 | --- | --- | --- | --- |
 | 62 | [不同路径](#62-不同路径) | 中等 | ✅ |
 | 64 | [最小路径和](#64-最小路径和) | 中等 | ✅ |
-| 5 | 最长回文子串 | 中等 | ⬜ |
+| 5 | [最长回文子串](#5-最长回文子串) | 中等 | ✅ |
 | 1143 | 最长公共子序列 | 中等 | ⬜ |
 | 72 | 编辑距离 | 中等 | ⬜ |
 
@@ -482,6 +482,76 @@ class Solution:
 - **与 62 不同路径的对比**：结构完全一样，差别只在转移——62 是**计数**（`+` 累加方案数），64 是**最值**（`min` 取较小 + 当前格开销 `grid[i][j]`）
 - **常见错误**：`dp[i-1][j] + dp[i][j-1]`（写成相加，应是 `min`）、忘加 `grid[i][j]`、循环从 `0` 开始覆盖边界、初始化用 `1e8` 哨兵但又用 `+=` 叠加
 - **一维压缩**：`dp[j] = min(dp[j], dp[j-1]) + grid[i][j]`，内层**正序**遍历；`dp[j]` 右侧代表上一行同列的旧值，`dp[j-1]` 是同行左侧的新值
+
+---
+
+### 5. 最长回文子串
+
+**题目**：给定字符串 `s`，返回 `s` 中最长的回文子串。
+
+**解法类型**：区间 DP · 按**子串长度**从小到大枚举
+
+**`dp` 定义**：`dp[i][j]` = 子串 `s[i..j]`（闭区间）是否为回文。
+
+**状态转移方程**：
+
+```python
+# 两端不同：一定不是回文
+if s[i] != s[j]:
+    dp[i][j] = False
+# 两端相同：看内部
+else:
+    if j - i < 2:            # 长度 ≤ 2：'a' 或 'aa'
+        dp[i][j] = True
+    else:
+        dp[i][j] = dp[i+1][j-1]   # 内层是否为回文
+```
+
+**初始化 / 边界**：
+- 对角线 `dp[i][i] = True`（单字符必为回文）
+- 其余 `False`
+- 必须**按长度 `L` 从小到大遍历**，保证计算 `dp[i][j]` 时 `dp[i+1][j-1]` 已得到
+- 答案：遍历过程中用 `max_len / begin` 记录最长的一个，返回 `s[begin:begin+max_len]`
+
+**复杂度**：时间 `O(N²)`，空间 `O(N²)`。
+
+**代码**：
+
+```python
+class Solution:
+    def longestPalindrome(self, s: str) -> str:
+        n = len(s)
+        if n < 2:
+            return s
+        max_len, begin = 1, 0
+        dp = [[False] * n for _ in range(n)]
+        for i in range(n):
+            dp[i][i] = True
+        for L in range(2, n + 1):          # 子串长度从小到大
+            for left in range(n):
+                right = left + L - 1
+                if right >= n:
+                    break
+                if s[left] != s[right]:
+                    dp[left][right] = False
+                else:
+                    if L == 2:
+                        dp[left][right] = True
+                    else:
+                        dp[left][right] = dp[left + 1][right - 1]
+                if dp[left][right] and L > max_len:
+                    max_len = L
+                    begin = left
+        return s[begin:begin + max_len]
+```
+
+**要点**：
+- **遍历顺序必须按长度**：`dp[i][j]` 依赖 `dp[i+1][j-1]`（左下格），若按 `i` 或 `j` 的自然顺序枚举会读到未计算值。按长度枚举天然保证"内层短子串已算好"
+- **长度 2 要单独处理**：`L==2` 时 `dp[i+1][j-1] = dp[j][i]` 是"反向索引"，没有意义，必须直接根据两端是否相等判定
+- **对角线初始化**：`L==3` 的转移要查 `dp[i+1][i+1]`（单字符），若不初始化对角线为 `True`，所有长度 3 的回文都会误判
+- **切片右端开区间**：`s[begin:begin+max_len]`，不是 `begin+max_len-1`
+- **等价写法**：`dp[i][j] = (s[i]==s[j]) and (j-i<2 or dp[i+1][j-1])`，把 L==2 融进 `j-i<2` 这一分支
+- **易错点**：用 `if / if / else` 串联导致第二段覆盖第一段（L==2 设 True 后被 else 覆盖为 False）——分支必须用 `elif` 或拆成 if/else
 
 ---
 
