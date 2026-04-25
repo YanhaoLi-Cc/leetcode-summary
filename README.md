@@ -6,6 +6,7 @@
 
 - [动态规划 (Dynamic Programming)](#动态规划-dynamic-programming)
 - [多维动态规划 (Multi-dimensional DP)](#多维动态规划-multi-dimensional-dp)
+- [图论 (Graph)](#图论-graph)
 - [面试题 (Interview)](#面试题-interview)
 
 ---
@@ -682,6 +683,63 @@ class Solution:
   | 字符相等 | `dp[i-1][j-1] + 1` | `dp[i-1][j-1]`（+0）|
   | 字符不等 | `max(dp[i-1][j], dp[i][j-1])` | `1 + min(三个邻居)` |
   | 边界 | 全 `0` | `dp[0][j]=j`、`dp[i][0]=i` |
+
+---
+
+## 图论 (Graph)
+
+| # | 题目 | 难度 | 状态 |
+| --- | --- | --- | --- |
+| 200 | [岛屿数量](#200-岛屿数量) | 中等 | ✅ |
+| 994 | 腐烂的橘子 | 中等 | ⬜ |
+| 207 | 课程表 | 中等 | ⬜ |
+| 208 | 实现 Trie (前缀树) | 中等 | ⬜ |
+
+---
+
+### 200. 岛屿数量
+
+**题目**：给定一个由 `'1'`（陆地）和 `'0'`（水）组成的二维网格，统计**岛屿**的数量。岛屿由水平/垂直相邻的陆地连接而成，网格四周被水包围。
+
+**解法类型**：网格 DFS · 连通分量计数
+
+**核心思路**：把网格当成图——每个 `'1'` 是节点，**上下左右**相邻的 `'1'` 之间有边。岛屿数 = **连通分量个数**。
+
+外层双循环遍历每个格子：遇到 `'1'` 答案 +1，立刻从该点 DFS 把整座岛全部「淹没」（标记为 `'0'`），保证下次扫到的 `'1'` 一定属于新岛。
+
+**代码**：
+
+```python
+class Solution:
+    def numIslands(self, grid: List[List[str]]) -> int:
+        m, n = len(grid), len(grid[0])
+        ans = 0
+
+        def dfs(i: int, j: int) -> None:
+            if i < 0 or i >= m or j < 0 or j >= n or grid[i][j] != '1':
+                return
+            grid[i][j] = '0'         # 淹没：标记已访问
+            dfs(i - 1, j)
+            dfs(i + 1, j)
+            dfs(i, j - 1)
+            dfs(i, j + 1)
+
+        for i in range(m):
+            for j in range(n):
+                if grid[i][j] == '1':
+                    dfs(i, j)
+                    ans += 1
+        return ans
+```
+
+**复杂度**：时间 `O(m × n)`（每格至多访问一次），空间 `O(m × n)`（递归栈最坏深度，蛇形岛）。
+
+**要点**：
+- **越界判断必须在前**：`if i < 0 or i >= m or j < 0 or j >= n or grid[i][j] != '1'`，顺序反了会先访问 `grid[-1][...]`，Python 负索引悄悄绕到尾部把无关格当邻居
+- **淹没要在递归之前**：先 `grid[i][j]='0'` 再往四周递归，否则邻居又调回当前格，无限递归爆栈
+- **不能修改原 grid 时**用 `visited` 二维布尔数组替代：`if visited[i][j] or grid[i][j]=='0': return; visited[i][j]=True; …`
+- **DFS vs BFS**：本题两种都行，DFS 写得短；但**遇到"最短距离/最少步数"必须用 BFS**（如 994 腐烂的橘子）
+- **同框架题型**：695 岛屿最大面积、463 岛屿周长、79 单词搜索、130 被围绕的区域，都是「网格 DFS + 标记访问」一个模板
 
 ---
 
